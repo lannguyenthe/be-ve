@@ -12,6 +12,9 @@ export interface Point {
   y: number;
   /** 0..1, lấy từ Apple Pencil; ngón tay luôn ~0.5 */
   p: number;
+  /** Tốc độ tương đối 0..1, dùng để làm nét thay đổi tự nhiên khi rê nhanh/chậm. */
+  speed: number;
+  time: number;
 }
 
 export interface Stroke {
@@ -112,7 +115,7 @@ export class DrawingBoard {
 
   // ---------------------------------------------------------------------------
 
-  private resize(): void {
+  resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
     this.canvas.width = Math.round(rect.width * this.dpr);
@@ -124,7 +127,15 @@ export class DrawingBoard {
     const rect = this.canvas.getBoundingClientRect();
     // Ngón tay báo pressure = 0.5 (hoặc 0 trên vài máy) → coi như lực trung bình
     const p = e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5;
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top, p };
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const points = this.current?.points;
+    const previous = points ? points[points.length - 1] : undefined;
+    const time = e.timeStamp;
+    const elapsed = previous ? Math.max(1, time - previous.time) : 1;
+    const distance = previous ? Math.hypot(x - previous.x, y - previous.y) : 0;
+    const speed = Math.min(1, distance / elapsed / 1.5);
+    return { x, y, p, speed, time };
   }
 
   private handleDown = (e: PointerEvent): void => {
@@ -143,7 +154,7 @@ export class DrawingBoard {
       points: [this.toPoint(e)],
     };
     this.redoStack = [];
-    // Vẽ 1 chấm ngay để chạm nhẹ cũng thấy
+    // Một lần chạm vẫn tạo dấu bằng đúng chất liệu của cọ đang chọn.
     this.drawDot(this.current, this.current.points[0]);
   };
 
@@ -183,45 +194,49 @@ export class DrawingBoard {
     c.lineCap = 'round';
     c.lineJoin = 'round';
     c.globalCompositeOperation = s.eraser ? 'destination-out' : 'source-over';
-    c.globalAlpha = s.eraser ? 1 : this.opacity(s);
+    c.globalAlpha = 1;
     c.strokeStyle = s.color;
     c.fillStyle = s.color;
   }
 
-  private opacity(s: Stroke): number {
+  private opacity(s: Stroke, p: Point): number {
     switch (s.brush) {
       case 'marker':
-        return 0.42;
-      case 'watercolor':
-        return 0.2;
-      case 'crayon':
-        return 0.78;
-      default:
         return 1;
+      case 'watercolor':
+        return 0.04 + p.p * 0.05;
+      case 'crayon':
+        return 0.58 + p.p * 0.3;
+      default:
+        return 0.62 + p.p * 0.38 - p.speed * 0.12;
     }
   }
 
   private widthAt(s: Stroke, p: Point): number {
-    const pressure = 0.5 + p.p;
+    const pressure = 0.65 + p.p * 0.65;
     switch (s.brush) {
       case 'marker':
-        return s.size * 1.8 * pressure;
+        return s.size * 1.35 * pressure * (1 - p.speed * 0.14);
       case 'watercolor':
-        return s.size * 2.4 * pressure;
+        return s.size * 1.5 * pressure * (1 - p.speed * 0.28);
       case 'crayon':
-        return s.size * 1.7 * pressure;
+        return s.size * 1.2 * pressure * (1 - p.speed * 0.2);
       default:
-        // pressure 0.5 → đúng size; Pencil nhấn mạnh/nhẹ → to/nhỏ hơn
-        return s.size * pressure;
+        return s.size * (0.28 + p.p * 1.02) * (1 - p.speed * 0.35);
     }
   }
 
   private drawDot(s: Stroke, p: Point): void {
     this.setupCtx(s);
-    this.ctx.beginPath();
-    this.ctx.arc(p.x, p.y, this.widthAt(s, p) / 2, 0, Math.PI * 2);
-    this.ctx.fill();
-    if (s.brush === 'crayon' && !s.eraser) this.drawCrayonTexture(s, p);
+    this.ctx.globalAlpha = s.eraser ? 1 : this.opacity(s, p);
+    const width = this.widthAt(s, p);
+    if (s.brush === 'watercolor' && !s.eraser) {
+      this.ctx.globalAlpha *= 0.65;
+      this.drawStamp(p, width * 1.5);
+      this.ctx.globalAlpha *= 1.5;
+    }
+    this.drawStamp(p, width);
+    if (!s.eraser) this.drawTexture(s, p, p, p);
   }
 
   /** Vẽ đoạn cuối bằng đường cong qua trung điểm → nét mềm, không gãy khúc */
@@ -236,28 +251,62 @@ export class DrawingBoard {
     const end = mid(p1, p2);
 
     this.setupCtx(s);
-    this.ctx.lineWidth = this.widthAt(s, p1);
-    this.ctx.beginPath();
-    this.ctx.moveTo(start.x, start.y);
-    this.ctx.quadraticCurveTo(p1.x, p1.y, end.x, end.y);
-    this.ctx.stroke();
-    if (s.brush === 'crayon' && !s.eraser) this.drawCrayonTexture(s, p2);
+    const c = this.ctx;
+    const drawCurve = (width: number, alpha: number, offset = 0): void => {
+      c.globalAlpha = alpha;
+      c.lineWidth = width;
+      c.beginPath();
+      c.moveTo(start.x, start.y + offset);
+      c.quadraticCurveTo(p1.x, p1.y + offset, end.x, end.y + offset);
+      c.stroke();
+    };
+
+    const width = this.widthAt(s, p1);
+    const alpha = s.eraser ? 1 : this.opacity(s, p1);
+    if (s.brush === 'watercolor' && !s.eraser) {
+      // Layer a faint wash and a soft edge without allocating a full-canvas texture.
+      drawCurve(width * 1.4, alpha * 0.5);
+      drawCurve(width, alpha);
+      drawCurve(width * 0.62, alpha * 0.32, Math.sin(p1.x * 0.11 + p1.y * 0.07) * width * 0.1);
+    } else {
+      drawCurve(width, alpha);
+      if (s.brush === 'pencil' && !s.eraser) {
+        drawCurve(Math.max(0.7, width * 0.42), alpha * 0.2, Math.sin(p1.x * 0.13) * width * 0.18);
+      }
+    }
+    if (!s.eraser) this.drawTexture(s, p1, p2, start);
   }
 
-  private drawCrayonTexture(s: Stroke, p: Point): void {
+  private drawStamp(p: Point, width: number): void {
+    this.ctx.beginPath();
+    this.ctx.arc(p.x, p.y, width / 2, 0, Math.PI * 2);
+    this.ctx.fill();
+  }
+
+  private drawTexture(s: Stroke, from: Point, to: Point, start: Point): void {
+    if (s.brush !== 'crayon' && s.brush !== 'pencil') return;
     const c = this.ctx;
-    const seed = Math.sin(p.x * 12.9898 + p.y * 78.233) * 43758.5453;
-    const radius = Math.sqrt(this.widthAt(s, p)) * 1.5;
+    const distance = Math.hypot(to.x - start.x, to.y - start.y);
+    const marks = Math.min(4, Math.max(1, Math.ceil(distance / 8)));
+    const angle = Math.atan2(to.y - start.y, to.x - start.x) + Math.PI / 2;
+    const width = this.widthAt(s, from);
     c.save();
-    c.globalAlpha = 0.32;
-    for (let i = 0; i < 4; i++) {
-      const value = seed + i * 19.19;
-      const angle = (value - Math.floor(value)) * Math.PI * 2;
-      const variation = (Math.abs(value * 0.37) % 0.7) / 0.7;
-      const distance = radius * (0.3 + variation * 0.7);
+    c.globalAlpha = s.brush === 'crayon' ? 0.2 : 0.12;
+    c.lineWidth = s.brush === 'crayon' ? 1 : 0.7;
+    for (let i = 1; i <= marks; i++) {
+      const t = i / (marks + 1);
+      const x = start.x + (to.x - start.x) * t;
+      const y = start.y + (to.y - start.y) * t;
+      const seed = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+      const fraction = seed - Math.floor(seed);
+      const side = (fraction - 0.5) * width * 0.8;
+      const length = s.brush === 'crayon' ? 2 + fraction * 3 : 1 + fraction * 1.5;
+      const centerX = x + Math.cos(angle) * side;
+      const centerY = y + Math.sin(angle) * side;
       c.beginPath();
-      c.arc(p.x + Math.cos(angle) * distance, p.y + Math.sin(angle) * distance, 0.8, 0, Math.PI * 2);
-      c.fill();
+      c.moveTo(centerX - Math.cos(angle) * length, centerY - Math.sin(angle) * length);
+      c.lineTo(centerX + Math.cos(angle) * length, centerY + Math.sin(angle) * length);
+      c.stroke();
     }
     c.restore();
   }
@@ -280,5 +329,11 @@ export class DrawingBoard {
 }
 
 function mid(a: Point, b: Point): Point {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, p: (a.p + b.p) / 2 };
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    p: (a.p + b.p) / 2,
+    speed: (a.speed + b.speed) / 2,
+    time: (a.time + b.time) / 2,
+  };
 }

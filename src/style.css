@@ -124,13 +124,12 @@ button:disabled {
     0 0 0 8px var(--swatch);
 }
 
-/* Cỡ bút: chấm tròn minh hoạ */
-.size::before {
-  content: '';
-  width: var(--dot-size);
-  height: var(--dot-size);
-  border-radius: 50%;
-  background: var(--dot, var(--ink));
+.size svg {
+  width: var(--tip-width);
+  height: var(--tip-height);
+  overflow: visible;
+  fill: currentColor;
+  pointer-events: none;
 }
 
 .size.active,

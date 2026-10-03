@@ -10,6 +10,8 @@ const toolbarEl = document.querySelector<HTMLElement>('#toolbar')!;
 let toolbar: Toolbar;
 const board = new DrawingBoard(canvas, () => toolbar.state);
 toolbar = new Toolbar(toolbarEl, board, async () => saveImage(await board.toPngBlob()));
+// Fit again after the toolbar is populated and takes its final layout space.
+board.resize();
 board.onChange = () => toolbar.refresh();
 
 // --- Chặn các cử chỉ hệ thống làm phiền bé -----------------------------------
