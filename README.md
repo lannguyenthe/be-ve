@@ -1,8 +1,12 @@
 # Bé Vẽ 🎨
 
-Bảng vẽ đơn giản cho bé, chạy trên iPad (Safari) dạng web app — **không cần Mac, iPhone hay tài khoản Apple Developer**.
+Bảng vẽ cho bé, chạy trên iPad (Safari) dạng web app — **không cần Mac, iPhone hay tài khoản Apple Developer**. Tranh được lưu trên thiết bị và có thể dùng offline sau lần mở đầu tiên.
 
-Có 4 loại cọ để chọn: bút chì, bút dạ, màu nước và sáp màu. Nét thay đổi theo lực nhấn và tốc độ rê; nút chọn cỡ hiển thị hình đầu cọ tương ứng. Apple Pencil được hỗ trợ.
+Có 12 loại cọ mô phỏng chất liệu (bút chì, bút dạ, màu nước, sáp, sơn dầu, bút bi, pastel, phấn, than, pha màu, ánh kim và sơn nổi 3D). Nét phản hồi lực nhấn/tốc độ; có tẩy với đầu cọ riêng, lấy màu, đổ màu, làm mờ, vẽ hình học, pixel và đối xứng. Apple Pencil được hỗ trợ.
+
+Các tính năng khác gồm bảng màu tuỳ chỉnh, chỉnh màu HSB/RGB, opacity/flow/texture, nhiều loại giấy, zoom/pan/xoay, độ phân giải thích ứng, layer có mask/blend/opacity/filter/biến đổi, thư viện tranh, tự lưu và tối đa 3 bản sao lưu gần nhất, nhập ảnh, sao chép/dán ảnh qua clipboard, xuất PNG/PSD nhiều layer/tệp dự án JSON, cùng giao diện tối và tương phản cao.
+
+Đây là bộ công cụ vẽ độc lập lấy cảm hứng từ các ứng dụng vẽ, không phải bản sao Art Set. Một số tính năng native/pro như hàng trăm đầu cọ, mô phỏng màu nước/vật lý nâng cao, không gian màu Wide Color P3, nhập PSD và ghi/phát lại nét vẽ chưa có.
 
 ## Chạy thử
 
@@ -50,8 +54,10 @@ Cài đặt → Trợ năng → **Truy cập được hướng dẫn** → bật
 ```
 src/
   main.ts       khởi tạo, chặn zoom/cử chỉ, đăng ký service worker
-  drawing.ts    engine vẽ: lưu nét dạng vector, undo/redo, Apple Pencil
-  toolbar.ts    thanh công cụ (màu, cỡ bút, tẩy, undo, lưu, xoá)
+  drawing.ts    engine vẽ, layer, nhập/xuất và lưu tranh
+  toolbar.ts    thanh công cụ, layer, thư viện và định dạng xuất
+  storage.ts    thư viện tranh và bản sao lưu IndexedDB
+  psd.ts        bộ ghi PSD nhiều layer
   config.ts     ← màu & cỡ bút — chỉnh ở đây
   icons.ts      icon SVG inline
   save.ts       lưu tranh (bảng Chia sẻ → Lưu hình ảnh)
@@ -65,18 +71,12 @@ public/
 ## Ghi chú kỹ thuật
 
 - **Undo lưu dạng vector** chứ không chụp ảnh canvas: iPad 2018 chỉ có 2GB RAM, chụp `ImageData` mỗi bước (~12MB) sẽ khiến Safari reload trang.
-- Độ phân giải canvas giới hạn `devicePixelRatio ≤ 2` cũng vì RAM.
+- Canvas được giới hạn khoảng 2 triệu pixel để tránh quá tải Safari trên iPad đời cũ.
+- Ảnh nhập được giảm kích thước tối đa 4096 px/cạnh và 8 triệu pixel; tệp ảnh nguồn tối đa 15 MB.
+- Canvas giới hạn 8 layer; PSD giới hạn 2 triệu pixel và 8 layer. PSD có thể xuất nhưng chưa hỗ trợ nhập PSD.
 - Chỉ nhận **1 ngón tay** cùng lúc → bé tì tay lên màn hình không làm loạn nét.
 - Apple Pencil: nhấn mạnh nét to, nhấn nhẹ nét nhỏ; dùng `getCoalescedEvents()` cho nét mượt.
 - Nút dùng `pointerup` thay vì `click` để phản hồi tức thì.
 - "Xoá hết" phải bấm 2 lần (lần đầu nút rung đỏ).
 
-## Ý tưởng làm tiếp
-
-- [ ] Tự lưu tranh đang vẽ (IndexedDB) để lỡ thoát app không mất
-- [ ] Thư viện tranh đã vẽ
-- [ ] Tranh tô màu (đường viền có sẵn, bé tô vào) + công cụ đổ màu (flood fill)
-- [ ] Bút sticker / con dấu hình ngôi sao, trái tim
-- [ ] Bút cầu vồng, bút lấp lánh
-- [ ] Âm thanh khi chọn màu
-- [ ] Khoá "khu vực bố mẹ" (nhấn giữ 3 giây mới vào) cho nút Xoá / cài đặt
+- Ghi/phát lại quá trình vẽ không được triển khai theo yêu cầu.

@@ -2,6 +2,7 @@ import './style.css';
 import { DrawingBoard } from './drawing';
 import { Toolbar } from './toolbar';
 import { saveImage } from './save';
+import { listArtworks } from './storage';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#board')!;
 const toolbarEl = document.querySelector<HTMLElement>('#toolbar')!;
@@ -12,7 +13,26 @@ const board = new DrawingBoard(canvas, () => toolbar.state);
 toolbar = new Toolbar(toolbarEl, board, async () => saveImage(await board.toPngBlob()));
 // Fit again after the toolbar is populated and takes its final layout space.
 board.resize();
-board.onChange = () => toolbar.refresh();
+let saveTimer = 0;
+board.onChange = () => {
+  toolbar.refresh();
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    void board.saveDocument().catch((error: unknown) => {
+      console.error('Không thể lưu tranh vào thư viện:', error);
+    });
+  }, 500);
+};
+
+const savedTheme = localStorage.getItem('be-ve-theme');
+if (savedTheme === 'dark' || savedTheme === 'contrast') {
+  document.documentElement.classList.add(savedTheme === 'dark' ? 'dark' : 'high-contrast');
+}
+void listArtworks()
+  .then((artworks) => {
+    if (artworks[0]) board.loadDocument(artworks[0]);
+  })
+  .catch((error: unknown) => console.error('Không tải được thư viện tranh:', error));
 
 // --- Chặn các cử chỉ hệ thống làm phiền bé -----------------------------------
 

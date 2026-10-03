@@ -12,6 +12,8 @@ export const COLORS = [
   '#8e24aa', // tím
   '#ec407a', // hồng
   '#6d4c41', // nâu
+  '#c5a13f', // vàng ánh kim
+  '#aeb8c2', // bạc ánh kim
 ];
 
 /** Cỡ bút (px). Để to cho tay bé dễ thấy nét. */
