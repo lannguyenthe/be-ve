@@ -1,0 +1,155 @@
+:root {
+  --bg: #fff7e6; /* nền giấy kem quanh canvas */
+  --paper: #ffffff;
+  --bar: #ffffff;
+  --ink: #3a3a3a;
+  --accent: #ffb300;
+  --danger: #e53935;
+  /* nút to cho ngón tay bé, co lại vừa đủ để cả thanh nằm 1 hàng
+     trên iPad 2018 nằm ngang (1024px) */
+  --btn: clamp(48px, 5.1vw, 64px);
+  --gap: clamp(6px, 0.8vw, 10px);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  /* không bôi đen chữ, không hiện menu "Sao chép" khi nhấn giữ */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none; /* không kéo nảy trang */
+  background: var(--bg);
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: max(var(--gap), env(safe-area-inset-top)) max(var(--gap), env(safe-area-inset-right))
+    max(var(--gap), env(safe-area-inset-bottom)) max(var(--gap), env(safe-area-inset-left));
+  gap: var(--gap);
+}
+
+#board {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  background: var(--paper);
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.08);
+  touch-action: none; /* quan trọng: để canvas nhận hết thao tác vẽ */
+  display: block;
+}
+
+/* --- Thanh công cụ --- */
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--gap) * 2);
+  padding: calc(var(--gap) + 4px) calc(var(--gap) * 1.5);
+  background: var(--bar);
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.08);
+  touch-action: manipulation;
+  overflow-x: auto;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  flex-shrink: 0;
+}
+
+button {
+  width: var(--btn);
+  height: var(--btn);
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f2f2f2;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s;
+  flex-shrink: 0;
+}
+
+button:active {
+  transform: scale(0.9);
+}
+
+button:disabled {
+  opacity: 0.3;
+}
+
+/* Ô màu */
+.swatch {
+  width: calc(var(--btn) * 0.82);
+  height: calc(var(--btn) * 0.82);
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 3px rgb(0 0 0 / 0.08);
+}
+
+.swatch.active {
+  transform: scale(1.18);
+  box-shadow:
+    0 0 0 4px var(--paper),
+    0 0 0 8px var(--swatch);
+}
+
+/* Cỡ bút: chấm tròn minh hoạ */
+.size::before {
+  content: '';
+  width: var(--dot-size);
+  height: var(--dot-size);
+  border-radius: 50%;
+  background: var(--dot, var(--ink));
+}
+
+.size.active,
+.tool.active {
+  background: #fff1c2;
+  box-shadow: 0 0 0 4px var(--accent);
+}
+
+/* Xoá hết: lần bấm đầu nút rung + đổi đỏ, bấm lần 2 mới xoá */
+.tool.danger.confirm {
+  background: var(--danger);
+  color: #fff;
+  animation: shake 0.4s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+}
+
+/* iPad dọc hoặc màn hẹp: thanh công cụ xuống 2 hàng */
+@media (max-width: 900px) {
+  #toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

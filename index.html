@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Khoá zoom: bé vẽ bằng 2 ngón sẽ không làm trang phóng to -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Bé Vẽ</title>
+
+    <!-- PWA / "Thêm vào Màn hình chính" trên iPad -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#fff7e6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Bé Vẽ" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="board"></canvas>
+      <nav id="toolbar" aria-label="Công cụ vẽ"></nav>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
