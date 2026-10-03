@@ -1,15 +1,28 @@
 import { COLORS, SIZES, DEFAULT_COLOR, DEFAULT_SIZE, CLEAR_CONFIRM_MS } from './config';
-import type { BrushState, DrawingBoard } from './drawing';
+import type { BrushState, BrushType, DrawingBoard } from './drawing';
 import { icon } from './icons';
+
+const BRUSHES: { value: BrushType; label: string }[] = [
+  { value: 'pencil', label: 'Bút chì' },
+  { value: 'marker', label: 'Bút dạ' },
+  { value: 'watercolor', label: 'Màu nước' },
+  { value: 'crayon', label: 'Sáp màu' },
+];
 
 /**
  * Thanh công cụ: gần như không có chữ — bé chưa biết đọc vẫn dùng được.
  */
 export class Toolbar {
-  readonly state: BrushState = { color: DEFAULT_COLOR, size: DEFAULT_SIZE, eraser: false };
+  readonly state: BrushState = {
+    color: DEFAULT_COLOR,
+    size: DEFAULT_SIZE,
+    eraser: false,
+    brush: 'pencil',
+  };
 
   private colorBtns: HTMLButtonElement[] = [];
   private sizeBtns: HTMLButtonElement[] = [];
+  private brushSelect!: HTMLSelectElement;
   private eraserBtn!: HTMLButtonElement;
   private undoBtn!: HTMLButtonElement;
   private redoBtn!: HTMLButtonElement;
@@ -35,6 +48,7 @@ export class Toolbar {
       // chấm minh hoạ cỡ bút mang màu đang chọn
       b.style.setProperty('--dot', this.state.eraser ? '#9e9e9e' : this.state.color);
     }
+    this.brushSelect.value = this.state.brush;
     this.eraserBtn.classList.toggle('active', this.state.eraser);
     this.undoBtn.disabled = !this.board.canUndo;
     this.redoBtn.disabled = !this.board.canRedo;
@@ -71,6 +85,25 @@ export class Toolbar {
       sizes.append(b);
     });
 
+    const brushes = group('brushes');
+    this.brushSelect = document.createElement('select');
+    this.brushSelect.className = 'brush-select';
+    this.brushSelect.setAttribute('aria-label', 'Chọn loại cọ');
+    for (const brush of BRUSHES) {
+      const option = document.createElement('option');
+      option.value = brush.value;
+      option.textContent = brush.label;
+      this.brushSelect.append(option);
+    }
+    this.brushSelect.addEventListener('change', () => {
+      const selected = BRUSHES.find((brush) => brush.value === this.brushSelect.value);
+      if (!selected) throw new Error(`Loại cọ không hợp lệ: ${this.brushSelect.value}`);
+      this.state.brush = selected.value;
+      this.state.eraser = false;
+      this.refresh();
+    });
+    brushes.append(this.brushSelect);
+
     const tools = group('tools');
     this.eraserBtn = button('tool', icon('eraser'), 'Tẩy');
     tap(this.eraserBtn, () => {
@@ -92,7 +125,7 @@ export class Toolbar {
     tap(this.clearBtn, () => this.handleClear());
 
     tools.append(this.eraserBtn, this.undoBtn, this.redoBtn, saveBtn, this.clearBtn);
-    this.root.append(colors, sizes, tools);
+    this.root.append(colors, sizes, brushes, tools);
   }
 
   private handleClear(): void {

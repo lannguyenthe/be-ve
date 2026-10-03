@@ -2,6 +2,8 @@
 
 Bảng vẽ đơn giản cho bé, chạy trên iPad (Safari) dạng web app — **không cần Mac, iPhone hay tài khoản Apple Developer**.
 
+Có 4 loại cọ để chọn: bút chì, bút dạ, màu nước và sáp màu. Cỡ nét và lực Apple Pencil được áp dụng khi vẽ.
+
 ## Chạy thử
 
 Cần Node.js 18+.

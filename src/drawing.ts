@@ -18,13 +18,17 @@ export interface Stroke {
   color: string;
   size: number;
   eraser: boolean;
+  brush: BrushType;
   points: Point[];
 }
+
+export type BrushType = 'pencil' | 'marker' | 'watercolor' | 'crayon';
 
 export interface BrushState {
   color: string;
   size: number;
   eraser: boolean;
+  brush: BrushType;
 }
 
 const MAX_DPR = 2; // giới hạn độ phân giải để tiết kiệm RAM
@@ -131,7 +135,13 @@ export class DrawingBoard {
     this.canvas.setPointerCapture(e.pointerId);
 
     const b = this.brush();
-    this.current = { color: b.color, size: b.size, eraser: b.eraser, points: [this.toPoint(e)] };
+    this.current = {
+      color: b.color,
+      size: b.size,
+      eraser: b.eraser,
+      brush: b.brush,
+      points: [this.toPoint(e)],
+    };
     this.redoStack = [];
     // Vẽ 1 chấm ngay để chạm nhẹ cũng thấy
     this.drawDot(this.current, this.current.points[0]);
@@ -173,13 +183,37 @@ export class DrawingBoard {
     c.lineCap = 'round';
     c.lineJoin = 'round';
     c.globalCompositeOperation = s.eraser ? 'destination-out' : 'source-over';
+    c.globalAlpha = s.eraser ? 1 : this.opacity(s);
     c.strokeStyle = s.color;
     c.fillStyle = s.color;
   }
 
+  private opacity(s: Stroke): number {
+    switch (s.brush) {
+      case 'marker':
+        return 0.42;
+      case 'watercolor':
+        return 0.2;
+      case 'crayon':
+        return 0.78;
+      default:
+        return 1;
+    }
+  }
+
   private widthAt(s: Stroke, p: Point): number {
-    // pressure 0.5 → đúng size; Pencil nhấn mạnh/nhẹ → to/nhỏ hơn
-    return s.size * (0.5 + p.p);
+    const pressure = 0.5 + p.p;
+    switch (s.brush) {
+      case 'marker':
+        return s.size * 1.8 * pressure;
+      case 'watercolor':
+        return s.size * 2.4 * pressure;
+      case 'crayon':
+        return s.size * 1.7 * pressure;
+      default:
+        // pressure 0.5 → đúng size; Pencil nhấn mạnh/nhẹ → to/nhỏ hơn
+        return s.size * pressure;
+    }
   }
 
   private drawDot(s: Stroke, p: Point): void {
@@ -187,6 +221,7 @@ export class DrawingBoard {
     this.ctx.beginPath();
     this.ctx.arc(p.x, p.y, this.widthAt(s, p) / 2, 0, Math.PI * 2);
     this.ctx.fill();
+    if (s.brush === 'crayon' && !s.eraser) this.drawCrayonTexture(s, p);
   }
 
   /** Vẽ đoạn cuối bằng đường cong qua trung điểm → nét mềm, không gãy khúc */
@@ -206,6 +241,25 @@ export class DrawingBoard {
     this.ctx.moveTo(start.x, start.y);
     this.ctx.quadraticCurveTo(p1.x, p1.y, end.x, end.y);
     this.ctx.stroke();
+    if (s.brush === 'crayon' && !s.eraser) this.drawCrayonTexture(s, p2);
+  }
+
+  private drawCrayonTexture(s: Stroke, p: Point): void {
+    const c = this.ctx;
+    const seed = Math.sin(p.x * 12.9898 + p.y * 78.233) * 43758.5453;
+    const radius = Math.sqrt(this.widthAt(s, p)) * 1.5;
+    c.save();
+    c.globalAlpha = 0.32;
+    for (let i = 0; i < 4; i++) {
+      const value = seed + i * 19.19;
+      const angle = (value - Math.floor(value)) * Math.PI * 2;
+      const variation = (Math.abs(value * 0.37) % 0.7) / 0.7;
+      const distance = radius * (0.3 + variation * 0.7);
+      c.beginPath();
+      c.arc(p.x + Math.cos(angle) * distance, p.y + Math.sin(angle) * distance, 0.8, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.restore();
   }
 
   private drawStroke(s: Stroke): void {
